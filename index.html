@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SlrTechCalls - Video Call App</title>
+    
+    <!-- CRITICAL: Load polyfills BEFORE anything else -->
+    <script>
+      // Early polyfills - must run before any other scripts
+      window.global = window;
+      window.process = {
+        env: {},
+        version: '',
+        nextTick: function(fn) { setTimeout(fn, 0); },
+        browser: true,
+        cwd: function() { return '/'; },
+        platform: 'browser'
+      };
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
