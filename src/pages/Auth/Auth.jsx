@@ -50,46 +50,84 @@ const AuthForm = ({ type }) => {
     };
 
     const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (type === 'signup' && formData.password !== formData.confirmPassword) {
-        toast.error('Passwords do not match!');
-        return;
-    }
-
-    setLoading(true);
-
-    try {
-        const endpoint = type === 'signup' ? '/auth/signup' : '/auth/login';
-        const response = await apiClient.post(endpoint, formData);
-        toast.success(response.data.message || 'Success!');
-
-        if (type === 'signup') {
-            navigate('/login');
+        e.preventDefault();
+        
+        if (type === 'signup' && formData.password !== formData.confirmPassword) {
+            toast.error('Passwords do not match!');
+            return;
         }
 
-        if (type === 'login') {
-            const loginData = response.data;
+        setLoading(true);
 
-            // ✔ Fetch real user from MongoDB
-            const fullUser = await apiClient.get(`/user/${loginData._id}`);
+        try {
+            const endpoint = type === 'signup' ? '/auth/signup' : '/auth/login';
+            const response = await apiClient.post(endpoint, formData);
+            
+            console.log('Auth response:', response.data);
 
-            // ✔ Update React context
-            updateUser(fullUser.data.user);
+            if (type === 'signup') {
+                toast.success(response.data.message || 'Registration successful!');
+                // Clear form
+                setFormData({
+                    fullname: '',
+                    username: '',
+                    email: '',
+                    password: '',
+                    confirmPassword: '',
+                    gender: 'male',
+                    profilepic: ''
+                });
+                setImagePreview(null);
+                
+                // Navigate to login after short delay
+                setTimeout(() => {
+                    navigate('/login');
+                }, 1500);
+            }
 
-            // 🔥 Save correct MongoDB user to localStorage
-            localStorage.setItem("userData", JSON.stringify(fullUser.data.user));
+            if (type === 'login') {
+                const loginData = response.data;
+                
+                // ✅ FIXED: Backend now sends user data in "user" object
+                const userData = loginData.user;
+                
+                // ✅ Add token to user object for storage
+                userData.token = loginData.token;
 
+                console.log('Storing user data:', userData);
 
-            navigate('/');
+                // ✅ Update React context
+                updateUser(userData);
+
+                // ✅ Save to localStorage
+                localStorage.setItem("userData", JSON.stringify(userData));
+
+                toast.success(loginData.message || 'Login successful!');
+                
+                // Navigate to dashboard
+                setTimeout(() => {
+                    navigate('/');
+                }, 500);
+            }
+
+        } catch (error) {
+            console.error("Auth error:", error);
+            
+            // Handle different error types
+            if (error.response) {
+                // Server responded with error
+                toast.error(error.response.data.message || 'Authentication failed!');
+            } else if (error.request) {
+                // Request was made but no response
+                toast.error('Cannot connect to server. Please check your connection.');
+            } else {
+                // Something else happened
+                toast.error('An error occurred. Please try again.');
+            }
+        } finally {
+            setLoading(false);
         }
-
-    } catch (error) {
-        console.error("Auth error:", error);
-        toast.error(error.response?.data?.message || 'Something went wrong!');
-    } finally {
-        setLoading(false);
-    }
-};
+    };
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-purple-800 text-white p-4">
@@ -139,6 +177,7 @@ const AuthForm = ({ type }) => {
                                     type="text"
                                     name="fullname"
                                     placeholder="Full Name"
+                                    value={formData.fullname}
                                     className="w-full bg-transparent focus:outline-none"
                                     onChange={handleChange}
                                     required
@@ -150,6 +189,7 @@ const AuthForm = ({ type }) => {
                                     type="text"
                                     name="username"
                                     placeholder="Username (e.g., Jondo99)"
+                                    value={formData.username}
                                     className="w-full bg-transparent focus:outline-none"
                                     onChange={handleChange}
                                     required
@@ -164,6 +204,7 @@ const AuthForm = ({ type }) => {
                             type="email"
                             name="email"
                             placeholder="Email"
+                            value={formData.email}
                             className="w-full bg-transparent focus:outline-none"
                             onChange={handleChange}
                             required
@@ -176,6 +217,7 @@ const AuthForm = ({ type }) => {
                             type="password"
                             name="password"
                             placeholder="Password"
+                            value={formData.password}
                             className="w-full bg-transparent focus:outline-none"
                             onChange={handleChange}
                             required
@@ -190,6 +232,7 @@ const AuthForm = ({ type }) => {
                                     type="password"
                                     name="confirmPassword"
                                     placeholder="Confirm Password"
+                                    value={formData.confirmPassword}
                                     className="w-full bg-transparent focus:outline-none"
                                     onChange={handleChange}
                                     required
@@ -225,10 +268,20 @@ const AuthForm = ({ type }) => {
                     
                     <button
                         type="submit"
-                        className="w-full bg-gradient-to-r from-purple-500 to-purple-700 text-white py-2 rounded-lg hover:opacity-90 transition duration-300"
+                        className="w-full bg-gradient-to-r from-purple-500 to-purple-700 text-white py-2 rounded-lg hover:opacity-90 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                         disabled={loading}
                     >
-                        {loading ? 'Loading...' : type === 'signup' ? 'Sign Up' : 'Login'}
+                        {loading ? (
+                            <span className="flex items-center justify-center">
+                                <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                Processing...
+                            </span>
+                        ) : (
+                            type === 'signup' ? 'Sign Up' : 'Login'
+                        )}
                     </button>
                 </form>
                 
