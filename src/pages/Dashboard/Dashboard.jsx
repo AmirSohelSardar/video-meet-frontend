@@ -114,7 +114,7 @@ const Dashboard = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ✅ UPDATED: YouTube Heartbeat Sync - Caller sends state every 2 seconds
+  // YouTube Heartbeat Sync - Caller sends state every 2 seconds
   useEffect(() => {
     if (isCaller && currentYoutubeId && callAccepted) {
       syncIntervalRef.current = setInterval(() => {
@@ -167,6 +167,7 @@ const Dashboard = () => {
     
     socket.on("me", (id) => setMe(id));
     socket.on("callToUser", (data) => {
+      console.log("📞 Incoming call from:", data.name);
       setReciveCall(true);
       setCaller(data);
       setCallerName(data.name);
@@ -229,19 +230,15 @@ const Dashboard = () => {
         setIsSyncing(true);
         const iframe = youtubeIframeRef.current;
         
-        // Get current time from iframe to compare
         iframe.contentWindow.postMessage('{"event":"command","func":"getCurrentTime","args":""}', '*');
         
-        // Update playing state
         setIsYoutubePlaying(data.isPlaying);
         
-        // Send play/pause command
         const playPauseCommand = data.isPlaying 
           ? '{"event":"command","func":"playVideo","args":""}' 
           : '{"event":"command","func":"pauseVideo","args":""}';
         iframe.contentWindow.postMessage(playPauseCommand, '*');
         
-        // Seek to sync time
         const seekCommand = `{"event":"command","func":"seekTo","args":[${data.currentTime}, true]}`;
         iframe.contentWindow.postMessage(seekCommand, '*');
         
@@ -311,7 +308,9 @@ const Dashboard = () => {
     };
   }, [user, socket, isCaller]);
 
-  // CHAT FUNCTIONS - Works for both caller and receiver
+
+
+// CHAT FUNCTIONS - Works for both caller and receiver
   const sendMessage = (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedUser) return;
@@ -408,7 +407,6 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ UPDATED: toggleAudioPlay with better error handling
   const toggleAudioPlay = () => {
     if (!isCaller) {
       alert("Only the caller can control music!");
@@ -493,9 +491,10 @@ const Dashboard = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // EXISTING CALL FUNCTIONS
+  // 🚀 FIXED: startCall with STUN servers
   const startCall = async () => {
     try {
+      console.log("🎬 Starting call...");
       const currentStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: {
@@ -504,6 +503,7 @@ const Dashboard = () => {
         }
       });
       
+      console.log("📹 Got media stream");
       setStream(currentStream);
       
       if (myVideo.current) {
@@ -520,13 +520,26 @@ const Dashboard = () => {
       setSelectedUser(modalUser._id);
       setIsCaller(true);
       
+      // 🚀 FIXED: Added STUN servers configuration
       const peer = new Peer({
         initiator: true,
         trickle: false,
-        stream: currentStream
+        stream: currentStream,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+          ]
+        }
       });
       
+      console.log("🔗 Peer connection created with STUN servers");
+      
       peer.on("signal", (data) => {
+        console.log("📡 Sending call signal");
         socket.emit("callToUser", {
           callToUserId: modalUser._id,
           signalData: data,
@@ -538,6 +551,7 @@ const Dashboard = () => {
       });
       
       peer.on("stream", (remoteStream) => {
+        console.log("📹 Received remote stream");
         const videoTrack = remoteStream.getVideoTracks()[0];
         if (videoTrack && videoTrack.label.includes('screen')) {
           setRemoteScreenStream(remoteStream);
@@ -553,19 +567,19 @@ const Dashboard = () => {
         }
       });
 
-      // ✅ ADDED: Error handling for peer connection
       peer.on("error", (err) => {
-        console.error("Peer connection error:", err);
-        alert("Connection error. Please try again.");
+        console.error("❌ Peer connection error:", err);
+        alert("Connection error: " + err.message);
         endCallCleanup();
       });
 
       peer.on("close", () => {
-        console.log("Peer connection closed");
+        console.log("🔌 Peer connection closed");
         endCallCleanup();
       });
       
       socket.once("callAccepted", (data) => {
+        console.log("✅ Call accepted, signaling...");
         setCallRejectedPopUp(false);
         setCallAccepted(true);
         setCallerWating(false);
@@ -576,13 +590,16 @@ const Dashboard = () => {
       connectionRef.current = peer;
       setShowUserDetailModal(false);
     } catch (error) {
-      console.error("Error accessing media devices:", error);
+      console.error("❌ Error accessing media devices:", error);
+      alert("Cannot access camera/microphone: " + error.message);
     }
   };
 
+  // 🚀 FIXED: handelacceptCall with STUN servers
   const handelacceptCall = async () => {
     ringtone.stop();
     try {
+      console.log("📞 Accepting call...");
       const currentStream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: {
@@ -591,6 +608,7 @@ const Dashboard = () => {
         }
       });
 
+      console.log("📹 Got media stream");
       setStream(currentStream);
 
       if (myVideo.current) {
@@ -606,13 +624,26 @@ const Dashboard = () => {
       setSelectedUser(caller.from);
       setIsCaller(false);
 
+      // 🚀 FIXED: Added STUN servers configuration
       const peer = new Peer({
         initiator: false,
         trickle: false,
-        stream: currentStream
+        stream: currentStream,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' },
+          ]
+        }
       });
 
+      console.log("🔗 Peer connection created with STUN servers");
+
       peer.on("signal", (data) => {
+        console.log("📡 Sending answer signal");
         socket.emit("answeredCall", {
           signal: data,
           from: me,
@@ -621,6 +652,7 @@ const Dashboard = () => {
       });
 
       peer.on("stream", (remoteStream) => {
+        console.log("📹 Received remote stream");
         const videoTrack = remoteStream.getVideoTracks()[0];
         if (videoTrack && videoTrack.label.includes('screen')) {
           setRemoteScreenStream(remoteStream);
@@ -636,23 +668,26 @@ const Dashboard = () => {
         }
       });
 
-      // ✅ ADDED: Error handling for peer connection
       peer.on("error", (err) => {
-        console.error("Peer connection error:", err);
-        alert("Connection error. Please try again.");
+        console.error("❌ Peer connection error:", err);
+        alert("Connection error: " + err.message);
         endCallCleanup();
       });
 
       peer.on("close", () => {
-        console.log("Peer connection closed");
+        console.log("🔌 Peer connection closed");
         endCallCleanup();
       });
 
-      if (callerSignal) peer.signal(callerSignal);
+      if (callerSignal) {
+        console.log("📡 Processing incoming signal");
+        peer.signal(callerSignal);
+      }
 
       connectionRef.current = peer;
     } catch (error) {
-      console.error("Error accessing media devices:", error);
+      console.error("❌ Error accessing media devices:", error);
+      alert("Cannot access camera/microphone: " + error.message);
     }
   };
 
@@ -752,7 +787,6 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ UPDATED: toggleScreenShare with better error handling
   const toggleScreenShare = async () => {
     try {
       if (!isScreenSharing) {
@@ -799,7 +833,6 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ UPDATED: stopScreenShare with async/await
   const stopScreenShare = async () => {
     if (screenStream) {
       screenStream.getTracks().forEach(track => track.stop());
@@ -876,8 +909,9 @@ const Dashboard = () => {
     }
   };
 
-
   return (
+
+
     <div className="flex min-h-screen bg-gray-100">
       {isSidebarOpen && (
         <div
@@ -1125,7 +1159,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Chat Panel - Works for BOTH users */}
+      {/* Chat Panel */}
       {isChatOpen && callAccepted && (
         <div className="fixed top-4 left-4 w-96 bg-white rounded-xl shadow-2xl z-50">
           <div className="bg-blue-600 text-white p-3 flex justify-between items-center rounded-t-xl">
@@ -1186,7 +1220,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* YouTube Panel - WITH FLOATING CONTROLLER */}
+      {/* YouTube Panel */}
       {isYouTubeOpen && callAccepted && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 w-[600px] bg-white rounded-xl shadow-2xl z-50">
           <div className="bg-red-600 text-white p-3 flex justify-between items-center rounded-t-xl">
@@ -1241,7 +1275,6 @@ const Dashboard = () => {
                   />
                 </div>
 
-                {/* FLOATING CONTROLLER - Only for Caller */}
                 {isCaller && (
                   <div className="mt-3 bg-gradient-to-r from-red-500 to-pink-500 rounded-lg p-3 shadow-lg">
                     <div className="flex items-center justify-between mb-2">
@@ -1269,7 +1302,6 @@ const Dashboard = () => {
                   </div>
                 )}
 
-                {/* Status for Receiver */}
                 {!isCaller && (
                   <div className="mt-3 bg-blue-50 rounded-lg p-3 border border-blue-200">
                     <div className="flex items-center gap-2 text-blue-700">
@@ -1284,7 +1316,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Music Panel - Caller controls, Receiver listens */}
+      {/* Music Panel */}
       {isMusicOpen && callAccepted && (
         <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-[500px] bg-white rounded-xl shadow-2xl z-50">
           <div className="bg-green-600 text-white p-3 flex justify-between items-center rounded-t-xl">
