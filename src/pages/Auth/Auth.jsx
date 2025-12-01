@@ -133,7 +133,7 @@ const AuthForm = ({ type }) => {
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-purple-800 text-white p-4">
             <div className="bg-white text-gray-900 p-8 rounded-lg shadow-2xl w-full max-w-md">
                 <h2 className="text-3xl font-extrabold text-center mb-6">
-                    {type === 'signup' ? 'SignUp SlrTechCalls' : 'Login SlrTechCalls'}
+                    {type === 'signup' ? 'SignUp Video Meet' : 'Login Video Meet'}
                 </h2>
                 
                 <form onSubmit={handleSubmit} className="space-y-4">
