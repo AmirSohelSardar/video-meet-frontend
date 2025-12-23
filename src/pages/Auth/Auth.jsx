@@ -85,26 +85,27 @@ const AuthForm = ({ type }) => {
                 }, 1500);
             }
 
-  if (type === 'login') {
+if (type === 'login') {
     const loginData = response.data;
     const userData = loginData.user;
     userData.token = loginData.token;
 
     console.log('Storing user data:', userData);
 
+    // ✅ FIX 1: Store first
     localStorage.setItem("userData", JSON.stringify(userData));
     
-    const verified = localStorage.getItem("userData");
-    console.log('Verified localStorage save:', !!verified);
-
+    // ✅ FIX 2: Update context
     updateUser(userData);
-
+    
+    // ✅ FIX 3: Show success message
     toast.success(loginData.message || 'Login successful!');
     
-    // ✅ FIX: Wait for state to settle before navigation
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // ✅ FIX 4: Wait 1 second for everything to settle
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    navigate('/', { replace: true });
+    // ✅ FIX 5: Force reload instead of navigate
+    window.location.href = '/';
 }
 
         } catch (error) {

@@ -1308,11 +1308,23 @@ const allusers = useCallback(async () => {
     try {
       setLoading(true);
       
+      // ✅ FIX: Check userData AND token exist
       const userData = localStorage.getItem('userData');
       if (!userData) {
         console.warn('⚠️ No userData found, cannot fetch users');
+        setLoading(false);
         return;
       }
+      
+      const parsed = JSON.parse(userData);
+      if (!parsed.token) {
+        console.warn('⚠️ No token found, cannot fetch users');
+        setLoading(false);
+        return;
+      }
+      
+      // ✅ FIX: Add small delay to ensure token is set in headers
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       const response = await apiClient.get('/user');
       if (response.data.success !== false) {
@@ -1321,9 +1333,9 @@ const allusers = useCallback(async () => {
     } catch (error) {
       console.error("❌ Failed to fetch users:", error);
       
-      // Let apiClient handle the redirect
       if (error.response?.status === 401) {
-        console.log('Token invalid');
+        localStorage.removeItem('userData');
+        window.location.href = '/login';
       }
     } finally {
       setLoading(false);

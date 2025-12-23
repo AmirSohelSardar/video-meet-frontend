@@ -91,46 +91,15 @@ apiClient.interceptors.response.use(
           console.error('Bad Request - Check your input data');
           break;
           
-   case 401:
+case 401:
   console.error('Unauthorized - Token invalid or expired');
   
-  // ✅ Check if this is the retry attempt
-  if (error.config.__isRetry) {
-    // Second attempt also failed - clear everything
-    console.log('Auth failed after retry, clearing session');
-    localStorage.removeItem('userData');
-    
-    if (!window.location.pathname.includes('/login') && 
-        !window.location.pathname.includes('/signup')) {
-      window.location.href = '/login';
-    }
-    break;
-  }
+  // ✅ Don't retry - just clear and redirect
+  localStorage.removeItem('userData');
   
-  // ✅ Check if we have userData to retry with
-  const userData = localStorage.getItem('userData');
-  if (!userData) {
-    // No token to retry with
-    if (!window.location.pathname.includes('/login') && 
-        !window.location.pathname.includes('/signup')) {
-      window.location.href = '/login';
-    }
-    break;
-  }
-  
-  // ✅ Try ONE more time with fresh token
-  console.log('Retrying request with fresh token...');
-  
-  try {
-    const user = JSON.parse(userData);
-    if (user.token) {
-      error.config.__isRetry = true;
-      error.config.headers['Authorization'] = `Bearer ${user.token}`;
-      return apiClient.request(error.config);
-    }
-  } catch (e) {
-    console.error('Failed to parse userData:', e);
-    localStorage.removeItem('userData');
+  if (!window.location.pathname.includes('/login') && 
+      !window.location.pathname.includes('/signup')) {
+    window.location.href = '/login';
   }
   break;
           
