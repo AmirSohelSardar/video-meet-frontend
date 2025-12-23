@@ -91,23 +91,12 @@ apiClient.interceptors.response.use(
           console.error('Bad Request - Check your input data');
           break;
           
-       case 401:
+   case 401:
   console.error('Unauthorized - Token invalid or expired');
   
-  // ✅ FIX: Don't immediately clear localStorage - check if it's a real auth failure
-  const userData = localStorage.getItem('userData');
-  const isLoginAttempt = error.config.url.includes('/auth/login');
-  
-  // Only clear and redirect if NOT a login attempt AND token exists
-  if (!isLoginAttempt && userData) {
-    // Give one retry chance before clearing
-    if (!error.config._retry) {
-      console.log('Retrying request with fresh token...');
-      error.config._retry = true;
-      return apiClient.request(error.config);
-    }
-    
-    // If retry also failed, then clear
+  // ✅ Check if this is the retry attempt
+  if (error.config.__isRetry) {
+    // Second attempt also failed - clear everything
     console.log('Auth failed after retry, clearing session');
     localStorage.removeItem('userData');
     
@@ -115,6 +104,33 @@ apiClient.interceptors.response.use(
         !window.location.pathname.includes('/signup')) {
       window.location.href = '/login';
     }
+    break;
+  }
+  
+  // ✅ Check if we have userData to retry with
+  const userData = localStorage.getItem('userData');
+  if (!userData) {
+    // No token to retry with
+    if (!window.location.pathname.includes('/login') && 
+        !window.location.pathname.includes('/signup')) {
+      window.location.href = '/login';
+    }
+    break;
+  }
+  
+  // ✅ Try ONE more time with fresh token
+  console.log('Retrying request with fresh token...');
+  
+  try {
+    const user = JSON.parse(userData);
+    if (user.token) {
+      error.config.__isRetry = true;
+      error.config.headers['Authorization'] = `Bearer ${user.token}`;
+      return apiClient.request(error.config);
+    }
+  } catch (e) {
+    console.error('Failed to parse userData:', e);
+    localStorage.removeItem('userData');
   }
   break;
           

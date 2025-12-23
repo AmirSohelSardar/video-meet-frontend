@@ -1314,9 +1314,6 @@ const allusers = useCallback(async () => {
         return;
       }
       
-      // ✅ FIX: Wait a bit for token to be ready in interceptor
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
       const response = await apiClient.get('/user');
       if (response.data.success !== false) {
         setUsers(response.data.users);
@@ -1324,16 +1321,14 @@ const allusers = useCallback(async () => {
     } catch (error) {
       console.error("❌ Failed to fetch users:", error);
       
-      // ✅ FIX: Don't redirect on first error - apiClient will handle retry
-      if (error.response?.status === 401 && error.config?._retry) {
-        console.log('Auth failed after retry, redirecting to login...');
-        localStorage.removeItem('userData');
-        navigate('/login', { replace: true });
+      // Let apiClient handle the redirect
+      if (error.response?.status === 401) {
+        console.log('Token invalid');
       }
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  }, []);
 
   useEffect(() => {
     allusers();
