@@ -278,32 +278,51 @@ const getSocketInstance = useCallback(() => {
   // ============================================
   // 🎥 WEBRTC CONFIGURATION (✅ FIXED WITH VALID TURN SERVERS)
   // ============================================
+ // ✅ PASTE THIS - Better TURN Configuration
   const getWebRTCConfig = useCallback(() => {
     return {
       iceServers: [
-        // ✅ Google STUN servers
+        // Google STUN servers
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:global.stun.twilio.com:3478' },
         
-        // ✅ FREE Public TURN servers (OpenRelay)
+        // ✅ Multiple FREE TURN servers for better reliability
+        
+        // Metered.ca TURN (Most reliable)
         {
-          urls: 'turn:openrelay.metered.ca:80',
+          urls: 'turn:a.relay.metered.ca:80',
           username: 'openrelayproject',
           credential: 'openrelayproject',
         },
         {
-          urls: 'turn:openrelay.metered.ca:443',
+          urls: 'turn:a.relay.metered.ca:443',
           username: 'openrelayproject',
           credential: 'openrelayproject',
         },
         {
-          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+          urls: 'turns:a.relay.metered.ca:443?transport=tcp',
           username: 'openrelayproject',
           credential: 'openrelayproject',
         },
+        
+        // Backup TURN servers
+        {
+          urls: 'turn:numb.viagenie.ca',
+          username: 'webrtc@live.com',
+          credential: 'muazkh'
+        },
+        {
+          urls: 'turn:turn.anyfirewall.com:443?transport=tcp',
+          username: 'webrtc',
+          credential: 'webrtc'
+        }
       ],
+      iceTransportPolicy: 'all',
       iceCandidatePoolSize: 10,
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require'
     };
   }, []);
 
