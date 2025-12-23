@@ -7,19 +7,24 @@ export const UserProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log("🔵 UserProvider initializing...");
     const storedUser = localStorage.getItem("userData");
+    console.log("🔵 StoredUser from localStorage:", storedUser ? "EXISTS" : "NULL");
 
     if (storedUser) {
       try {
-        setUser(JSON.parse(storedUser));
+        const parsed = JSON.parse(storedUser);
+        console.log("🔵 Parsed user:", parsed);
+        setUser(parsed);
       } catch (err) {
-        console.error("Invalid userData in localStorage");
+        console.error("❌ Invalid userData in localStorage:", err);
         localStorage.removeItem("userData");
         setUser(null);
       }
     }
 
-    setLoading(false); // 🔥 IMPORTANT
+    setLoading(false);
+    console.log("🔵 UserProvider loading complete");
   }, []);
 
   const updateUser = (userData) => {

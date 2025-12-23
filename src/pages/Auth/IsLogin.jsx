@@ -5,9 +5,19 @@ import { Navigate, Outlet } from 'react-router-dom';
 const IsLogin = () => {
   const { user, loading } = useUser();
 
-  if (loading) return <div>Loading...</div>; // 🔥 WAIT
+  console.log("🟢 IsLogin check - User:", user ? "EXISTS" : "NULL", "Loading:", loading);
 
-  return user ? <Outlet /> : <Navigate to="/login" replace />;
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!user) {
+    console.log("❌ No user - redirecting to login");
+    return <Navigate to="/login" replace />;
+  }
+
+  console.log("✅ User authenticated - rendering dashboard");
+  return <Outlet />;
 };
 
 

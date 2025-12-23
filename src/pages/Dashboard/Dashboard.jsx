@@ -19,14 +19,17 @@ const Dashboard = () => {
   const { user, updateUser } = useUser();
   const navigate = useNavigate();
 
-   useEffect(() => {
-    console.log("=== DASHBOARD DIAGNOSTIC ===");
-    console.log("1. User from context:", user);
-    console.log("2. LocalStorage userData:", localStorage.getItem("userData"));
-    console.log("3. Parsed localStorage:", JSON.parse(localStorage.getItem("userData") || "null"));
-    console.log("==========================");
+     useEffect(() => {
+    console.log("=== DASHBOARD MOUNTED ===");
+    console.log("User from context:", user);
+    console.log("LocalStorage raw:", localStorage.getItem("userData"));
+    try {
+      console.log("LocalStorage parsed:", JSON.parse(localStorage.getItem("userData")));
+    } catch (e) {
+      console.log("LocalStorage parse error:", e);
+    }
+    console.log("========================");
   }, []);
-  
   // ============================================
   // 📱 RESPONSIVE & UI STATES
   // ============================================
