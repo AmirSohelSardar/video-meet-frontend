@@ -18,6 +18,14 @@ import Peer from 'simple-peer';
 const Dashboard = () => {
   const { user, updateUser } = useUser();
   const navigate = useNavigate();
+
+   useEffect(() => {
+    console.log("=== DASHBOARD DIAGNOSTIC ===");
+    console.log("1. User from context:", user);
+    console.log("2. LocalStorage userData:", localStorage.getItem("userData"));
+    console.log("3. Parsed localStorage:", JSON.parse(localStorage.getItem("userData") || "null"));
+    console.log("==========================");
+  }, []);
   
   // ============================================
   // 📱 RESPONSIVE & UI STATES
