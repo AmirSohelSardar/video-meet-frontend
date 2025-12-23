@@ -393,10 +393,19 @@ useEffect(() => {
   
   if (!socket || !user) return;
 
-  if (!hasJoined.current) {
+ if (!hasJoined.current) {
     console.log("🔌 Joining socket room...");
-    socket.emit("join", { id: user._id, name: user.username });
-    hasJoined.current = true;
+    
+    // ✅ FIX: Wait for socket to be fully connected before joining
+    if (socket.connected) {
+      socket.emit("join", { id: user._id, name: user.username });
+      hasJoined.current = true;
+    } else {
+      socket.once('connect', () => {
+        socket.emit("join", { id: user._id, name: user.username });
+        hasJoined.current = true;
+      });
+    }
   }
     
     // ============================================
@@ -1299,12 +1308,14 @@ const allusers = useCallback(async () => {
     try {
       setLoading(true);
       
-      // ✅ Check if user/token exists before making request
       const userData = localStorage.getItem('userData');
       if (!userData) {
         console.warn('⚠️ No userData found, cannot fetch users');
         return;
       }
+      
+      // ✅ FIX: Wait a bit for token to be ready in interceptor
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       const response = await apiClient.get('/user');
       if (response.data.success !== false) {
@@ -1313,9 +1324,9 @@ const allusers = useCallback(async () => {
     } catch (error) {
       console.error("❌ Failed to fetch users:", error);
       
-      // ✅ If 401 error, redirect to login
-      if (error.response?.status === 401) {
-        console.log('Token invalid, redirecting to login...');
+      // ✅ FIX: Don't redirect on first error - apiClient will handle retry
+      if (error.response?.status === 401 && error.config?._retry) {
+        console.log('Auth failed after retry, redirecting to login...');
         localStorage.removeItem('userData');
         navigate('/login', { replace: true });
       }

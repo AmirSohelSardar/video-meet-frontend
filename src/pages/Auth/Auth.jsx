@@ -85,30 +85,25 @@ const AuthForm = ({ type }) => {
                 }, 1500);
             }
 
-          if (type === 'login') {
+  if (type === 'login') {
     const loginData = response.data;
-    
-    // ✅ FIXED: Backend now sends user data in "user" object
     const userData = loginData.user;
-    
-    // ✅ Add token to user object for storage
     userData.token = loginData.token;
 
     console.log('Storing user data:', userData);
 
-    // ✅ Save to localStorage FIRST (synchronous)
     localStorage.setItem("userData", JSON.stringify(userData));
     
-    // ✅ Verify it was saved
     const verified = localStorage.getItem("userData");
     console.log('Verified localStorage save:', !!verified);
 
-    // ✅ Update React context AFTER localStorage
     updateUser(userData);
 
     toast.success(loginData.message || 'Login successful!');
     
-    // ✅ Navigate immediately (no setTimeout)
+    // ✅ FIX: Wait for state to settle before navigation
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
     navigate('/', { replace: true });
 }
 

@@ -91,18 +91,32 @@ apiClient.interceptors.response.use(
           console.error('Bad Request - Check your input data');
           break;
           
-        case 401:
-          console.error('Unauthorized - Token invalid or expired');
-          // Clear user data
-          localStorage.removeItem('userData');
-          
-          // Only redirect if not already on auth pages
-          if (!window.location.pathname.includes('/login') && 
-              !window.location.pathname.includes('/signup')) {
-            console.log('Redirecting to login...');
-            window.location.href = '/login';
-          }
-          break;
+       case 401:
+  console.error('Unauthorized - Token invalid or expired');
+  
+  // ✅ FIX: Don't immediately clear localStorage - check if it's a real auth failure
+  const userData = localStorage.getItem('userData');
+  const isLoginAttempt = error.config.url.includes('/auth/login');
+  
+  // Only clear and redirect if NOT a login attempt AND token exists
+  if (!isLoginAttempt && userData) {
+    // Give one retry chance before clearing
+    if (!error.config._retry) {
+      console.log('Retrying request with fresh token...');
+      error.config._retry = true;
+      return apiClient.request(error.config);
+    }
+    
+    // If retry also failed, then clear
+    console.log('Auth failed after retry, clearing session');
+    localStorage.removeItem('userData');
+    
+    if (!window.location.pathname.includes('/login') && 
+        !window.location.pathname.includes('/signup')) {
+      window.location.href = '/login';
+    }
+  }
+  break;
           
         case 403:
           console.error('Forbidden - You do not have permission');
