@@ -1295,19 +1295,34 @@ useEffect(() => {
   // ============================================
   // 👥 USER MANAGEMENT FUNCTIONS
   // ============================================
-  const allusers = useCallback(async () => {
+const allusers = useCallback(async () => {
     try {
       setLoading(true);
+      
+      // ✅ Check if user/token exists before making request
+      const userData = localStorage.getItem('userData');
+      if (!userData) {
+        console.warn('⚠️ No userData found, cannot fetch users');
+        return;
+      }
+      
       const response = await apiClient.get('/user');
       if (response.data.success !== false) {
         setUsers(response.data.users);
       }
     } catch (error) {
-      console.error("Failed to fetch users", error);
+      console.error("❌ Failed to fetch users:", error);
+      
+      // ✅ If 401 error, redirect to login
+      if (error.response?.status === 401) {
+        console.log('Token invalid, redirecting to login...');
+        localStorage.removeItem('userData');
+        navigate('/login', { replace: true });
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     allusers();

@@ -85,30 +85,32 @@ const AuthForm = ({ type }) => {
                 }, 1500);
             }
 
-            if (type === 'login') {
-                const loginData = response.data;
-                
-                // ✅ FIXED: Backend now sends user data in "user" object
-                const userData = loginData.user;
-                
-                // ✅ Add token to user object for storage
-                userData.token = loginData.token;
+          if (type === 'login') {
+    const loginData = response.data;
+    
+    // ✅ FIXED: Backend now sends user data in "user" object
+    const userData = loginData.user;
+    
+    // ✅ Add token to user object for storage
+    userData.token = loginData.token;
 
-                console.log('Storing user data:', userData);
+    console.log('Storing user data:', userData);
 
-                // ✅ Update React context
-                updateUser(userData);
+    // ✅ Save to localStorage FIRST (synchronous)
+    localStorage.setItem("userData", JSON.stringify(userData));
+    
+    // ✅ Verify it was saved
+    const verified = localStorage.getItem("userData");
+    console.log('Verified localStorage save:', !!verified);
 
-                // ✅ Save to localStorage
-                localStorage.setItem("userData", JSON.stringify(userData));
+    // ✅ Update React context AFTER localStorage
+    updateUser(userData);
 
-                toast.success(loginData.message || 'Login successful!');
-                
-                // Navigate to dashboard
-                setTimeout(() => {
-                    navigate('/');
-                }, 500);
-            }
+    toast.success(loginData.message || 'Login successful!');
+    
+    // ✅ Navigate immediately (no setTimeout)
+    navigate('/', { replace: true });
+}
 
         } catch (error) {
             console.error("Auth error:", error);

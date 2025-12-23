@@ -17,19 +17,28 @@ apiClient.interceptors.request.use(
     // Get user data from localStorage
     const userData = localStorage.getItem('userData');
     
+    console.log('🔵 API Request Interceptor - userData exists:', !!userData); // ✅ Debug
+    
     if (userData) {
       try {
         const user = JSON.parse(userData);
         
+        console.log('🔵 Parsed user, token exists:', !!user.token); // ✅ Debug
+        
         // ✅ If token exists, add it to Authorization header
         if (user.token) {
           config.headers['Authorization'] = `Bearer ${user.token}`;
+          console.log('✅ Token added to request:', config.url); // ✅ Debug
+        } else {
+          console.warn('⚠️ No token found in userData'); // ✅ Debug
         }
       } catch (e) {
-        console.error('Error parsing user data from localStorage:', e);
+        console.error('❌ Error parsing user data from localStorage:', e);
         // If parsing fails, remove corrupted data
         localStorage.removeItem('userData');
       }
+    } else {
+      console.warn('⚠️ No userData in localStorage'); // ✅ Debug
     }
     
     // Log request for debugging
@@ -42,7 +51,6 @@ apiClient.interceptors.request.use(
     return Promise.reject(error);
   }
 );
-
 // Response interceptor - Handle errors globally
 apiClient.interceptors.response.use(
   (response) => {
