@@ -278,8 +278,7 @@ const getSocketInstance = useCallback(() => {
   // ============================================
   // 🎥 WEBRTC CONFIGURATION (✅ FIXED WITH VALID TURN SERVERS)
   // ============================================
- // ✅ PASTE THIS - Better TURN Configuration
-  const getWebRTCConfig = useCallback(() => {
+ const getWebRTCConfig = useCallback(() => {
     return {
       iceServers: [
         // Google STUN servers

@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { FaUser, FaEnvelope, FaLock, FaCamera } from 'react-icons/fa';
 import toast, { Toaster } from 'react-hot-toast';
 import apiClient from '../../apiClient';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUser } from '../../context/UserContextApi';
+import { FaUser, FaEnvelope, FaLock, FaCamera, FaWifi } from 'react-icons/fa'; // ✅ ADD FaWifi
 
 const AuthForm = ({ type }) => {
     const { updateUser } = useUser();
     const navigate = useNavigate();
+    const [showDisclaimer, setShowDisclaimer] = useState(true);
     const [formData, setFormData] = useState({
         fullname: '',
         username: '',
@@ -128,6 +129,35 @@ if (type === 'login') {
     };
 
     return (
+
+         <>
+        {/* ✅ ADD DISCLAIMER HERE */}
+        {showDisclaimer && (
+            <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                        <FaWifi className="text-yellow-500 text-3xl" />
+                        <h2 className="text-xl font-bold text-gray-800">Network Notice</h2>
+                    </div>
+                    
+                    <p className="text-gray-700 mb-4">
+                        ⚠️ <strong>Demo Version:</strong> Video calls currently work best on the <strong>same WiFi network</strong>.
+                    </p>
+                    
+                    <p className="text-sm text-gray-600 mb-4">
+                        Cross-network calling will be improved in future updates.
+                    </p>
+                    
+                    <button
+                        onClick={() => setShowDisclaimer(false)}
+                        className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-2 rounded-lg hover:opacity-90 transition"
+                    >
+                        I Understand
+                    </button>
+                </div>
+            </div>
+        )}
+
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-purple-800 text-white p-4">
             <div className="bg-white text-gray-900 p-8 rounded-lg shadow-2xl w-full max-w-md">
                 <h2 className="text-3xl font-extrabold text-center mb-6">
@@ -303,6 +333,7 @@ if (type === 'login') {
             </div>
             <Toaster position="top-center" />
         </div>
+    </>  
     );
 };
 
