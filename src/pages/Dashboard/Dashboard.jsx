@@ -132,7 +132,16 @@ const Dashboard = () => {
     };
   }, []);
 
-  const socket = socketInstance.getSocket();
+  // ✅ FIXED CODE:
+const socketRef = useRef(null);
+
+// Get socket instance
+const getSocketInstance = useCallback(() => {
+  if (!socketRef.current) {
+    socketRef.current = socketInstance.getSocket();
+  }
+  return socketRef.current;
+}, []);
 
   // ============================================
   // 📱 RESPONSIVE HANDLER
@@ -188,63 +197,72 @@ const Dashboard = () => {
   // ============================================
   // 🎬 YOUTUBE HEARTBEAT SYNC (IMPROVED)
   // ============================================
-  useEffect(() => {
-    if (isCaller && currentYoutubeId && callAccepted && isYouTubeOpen) {
-      let lastVideoTime = 0;
-      let lastPlayerState = -1;
+ useEffect(() => {
+  if (isCaller && currentYoutubeId && callAccepted && isYouTubeOpen) {
+    const socket = getSocketInstance();
+    let lastVideoTime = 0;
+    let lastPlayerState = -1;
+    
+    const handleYouTubeMessage = (event) => {
+      if (event.origin !== 'https://www.youtube.com') return;
       
-      const handleYouTubeMessage = (event) => {
-        if (event.origin !== 'https://www.youtube.com') return;
+      try {
+        const data = JSON.parse(event.data);
         
-        try {
-          const data = JSON.parse(event.data);
+        if (data.event === 'infoDelivery' && data.info) {
+          const { currentTime: videoTime, playerState } = data.info;
           
-          if (data.event === 'infoDelivery' && data.info) {
-            const { currentTime: videoTime, playerState } = data.info;
-            
-            if (videoTime !== undefined) lastVideoTime = videoTime;
-            if (playerState !== undefined) lastPlayerState = playerState;
-          }
-        } catch (e) {
-          // Ignore parse errors
+          if (videoTime !== undefined) lastVideoTime = videoTime;
+          if (playerState !== undefined) lastPlayerState = playerState;
         }
-      };
+      } catch (e) {
+        // Ignore parse errors
+      }
+    };
 
-      window.addEventListener('message', handleYouTubeMessage);
+    window.addEventListener('message', handleYouTubeMessage);
+    
+    // ✅ Use ref instead of state
+    syncIntervalRef.current = setInterval(() => {
+      const iframe = youtubeIframeRef.current;
+      if (!iframe?.contentWindow) return;
+
+      iframe.contentWindow.postMessage(
+        '{"event":"listening","channel":"widget"}',  // ✅ Enable listening first
+        '*'
+      );
+
+      iframe.contentWindow.postMessage(
+        '{"event":"command","func":"getCurrentTime","args":""}',
+        '*'
+      );
+      iframe.contentWindow.postMessage(
+        '{"event":"command","func":"getPlayerState","args":""}',
+        '*'
+      );
       
-      // ✅ Send sync every 2 seconds
-      syncIntervalRef.current = setInterval(() => {
-        const iframe = youtubeIframeRef.current;
-        if (!iframe?.contentWindow) return;
+      // ✅ Use ref instead of state
+      const targetUser = currentCallTargetRef.current || caller?.from;
+      
+      if (lastVideoTime >= 0 && targetUser) {  // ✅ Allow 0 time
+        socket.emit("youtube-sync", {
+          to: targetUser,  // ✅ Use ref, not state
+          videoId: currentYoutubeId,
+          currentTime: lastVideoTime,
+          isPlaying: lastPlayerState === 1
+        });
+      }
+    }, 2000);
 
-        iframe.contentWindow.postMessage(
-          '{"event":"command","func":"getCurrentTime","args":""}',
-          '*'
-        );
-        iframe.contentWindow.postMessage(
-          '{"event":"command","func":"getPlayerState","args":""}',
-          '*'
-        );
-        
-        if (lastVideoTime > 0 && selectedUser) {
-          socket.emit("youtube-sync", {
-            to: selectedUser,
-            videoId: currentYoutubeId,
-            currentTime: lastVideoTime,
-            isPlaying: lastPlayerState === 1
-          });
-        }
-      }, 2000);
-
-      return () => {
-        if (syncIntervalRef.current) {
-          clearInterval(syncIntervalRef.current);
-          syncIntervalRef.current = null;
-        }
-        window.removeEventListener('message', handleYouTubeMessage);
-      };
-    }
-  }, [isCaller, currentYoutubeId, callAccepted, isYouTubeOpen, selectedUser, socket]);
+    return () => {
+      if (syncIntervalRef.current) {
+        clearInterval(syncIntervalRef.current);
+        syncIntervalRef.current = null;
+      }
+      window.removeEventListener('message', handleYouTubeMessage);
+    };
+  }
+}, [isCaller, currentYoutubeId, callAccepted, isYouTubeOpen, getSocketInstance, caller]);
 
   // ============================================
   // 🎥 WEBRTC CONFIGURATION (✅ FIXED WITH VALID TURN SERVERS)
@@ -359,14 +377,16 @@ const Dashboard = () => {
   // ============================================
   // 🎮 SOCKET EVENT HANDLERS (✅ FIXED)
   // ============================================
-  useEffect(() => {
-    if (!socket || !user) return;
+useEffect(() => {
+  const socket = getSocketInstance();
+  
+  if (!socket || !user) return;
 
-    if (!hasJoined.current) {
-      console.log("🔌 Joining socket room...");
-      socket.emit("join", { id: user._id, name: user.username });
-      hasJoined.current = true;
-    }
+  if (!hasJoined.current) {
+    console.log("🔌 Joining socket room...");
+    socket.emit("join", { id: user._id, name: user.username });
+    hasJoined.current = true;
+  }
     
     // ============================================
     // 📡 BASIC SOCKET EVENTS
@@ -585,26 +605,26 @@ const Dashboard = () => {
     // ============================================
     // 🧹 CLEANUP ALL LISTENERS
     // ============================================
-    return () => {
-      socket.off("me", handleMe);
-      socket.off("callToUser", handleIncomingCall);
-      socket.off("callRejected", handleCallRejected);
-      socket.off("callEnded", handleCallEnded);
-      socket.off("userUnavailable", handleUserUnavailable);
-      socket.off("userBusy", handleUserBusy);
-      socket.off("online-users", handleOnlineUsers);
-      socket.off("screenShareStarted", handleScreenShareStarted);
-      socket.off("screenShareStopped", handleScreenShareStopped);
-      socket.off("receive-message", handleReceiveMessage);
-      socket.off("youtube-load", handleYoutubeLoad);
-      socket.off("youtube-sync", handleYoutubeSync);
-      socket.off("music-load", handleMusicLoad);
-      socket.off("music-play", handleMusicPlay);
-      socket.off("music-seek", handleMusicSeek);
-      socket.off("music-volume", handleMusicVolume);
-      socket.off("peer-disconnected", handlePeerDisconnected);
-    };
-  }, [user, socket, isCaller, endCallCleanup]);
+     return () => {
+    socket.off("me", handleMe);
+    socket.off("callToUser", handleIncomingCall);
+    socket.off("callRejected", handleCallRejected);
+    socket.off("callEnded", handleCallEnded);
+    socket.off("userUnavailable", handleUserUnavailable);
+    socket.off("userBusy", handleUserBusy);
+    socket.off("online-users", handleOnlineUsers);
+    socket.off("screenShareStarted", handleScreenShareStarted);
+    socket.off("screenShareStopped", handleScreenShareStopped);
+    socket.off("receive-message", handleReceiveMessage);
+    socket.off("youtube-load", handleYoutubeLoad);
+    socket.off("youtube-sync", handleYoutubeSync);
+    socket.off("music-load", handleMusicLoad);
+    socket.off("music-play", handleMusicPlay);
+    socket.off("music-seek", handleMusicSeek);
+    socket.off("music-volume", handleMusicVolume);
+    socket.off("peer-disconnected", handlePeerDisconnected);
+  };
+}, [user, getSocketInstance, endCallCleanup]);
 
   // ============================================
   // 🎬 START CALL FUNCTION (✅ MAJOR FIX - RACE CONDITION RESOLVED)
@@ -670,7 +690,7 @@ const Dashboard = () => {
           return;
         }
         
-        socket.emit("callToUser", {
+        getSocketInstance().emit("callToUser", {
           callToUserId: currentCallTargetRef.current, // ✅ Use ref, not state
           signalData: data,
           from: me,
@@ -724,20 +744,20 @@ const Dashboard = () => {
       });
       
       // ✅ Listen for call acceptance (use once to prevent duplicates)
-      socket.once("callAccepted", (data) => {
-        console.log("✅ Call accepted, establishing connection...");
-        
-        if (ringtoneRef.current) {
-          ringtoneRef.current.stop();
-        }
-        
-        setCallRejectedPopUp(false);
-        setCallAccepted(true);
-        setCallerWating(false);
-        setCaller(data.from);
-        
-        peer.signal(data.signal);
-      });
+ getSocketInstance().once("callAccepted", (data) => {
+  console.log("✅ Call accepted, establishing connection...");
+  
+  if (ringtoneRef.current) {
+    ringtoneRef.current.stop();
+  }
+  
+  setCallRejectedPopUp(false);
+  setCallAccepted(true);
+  setCallerWating(false);
+  setCaller(data.from);
+  
+  peer.signal(data.signal);
+});
       
       connectionRef.current = peer;
       setShowUserDetailModal(false);
@@ -758,7 +778,7 @@ const Dashboard = () => {
       setCallerWating(false);
       currentCallTargetRef.current = null;
     }
-  }, [socket, me, user, getWebRTCConfig, endCallCleanup]);
+  }, [me, user, getWebRTCConfig, endCallCleanup, getSocketInstance]);
 
   // ============================================
   // ✅ ACCEPT CALL FUNCTION (✅ FIXED)
@@ -818,7 +838,7 @@ const Dashboard = () => {
 
       peer.on("signal", (data) => {
         console.log("📡 Sending answer signal");
-        socket.emit("answeredCall", {
+        getSocketInstance().emit("answeredCall", {
           signal: data,
           from: me,
           to: caller.from,
@@ -892,7 +912,7 @@ const Dashboard = () => {
         alert("Cannot access camera/microphone: " + error.message);
       }
       
-      socket.emit("reject-call", {
+      getSocketInstance().emit("reject-call", {
         to: caller?.from,
         name: user.username,
         profilepic: user.profilepic
@@ -901,7 +921,7 @@ const Dashboard = () => {
       setReciveCall(false);
       setCallAccepted(false);
     }
-  }, [socket, me, user, caller, callerSignal, getWebRTCConfig, endCallCleanup]);
+  }, [me, user, caller, callerSignal, getWebRTCConfig, endCallCleanup, getSocketInstance]);
 
   // ============================================
   // ❌ REJECT CALL FUNCTION
@@ -918,7 +938,7 @@ const Dashboard = () => {
       callTimeoutRef.current = null;
     }
     
-    socket.emit("reject-call", {
+    getSocketInstance().emit("reject-call", {
       to: caller?.from,
       name: user.username,
       profilepic: user.profilepic
@@ -929,8 +949,7 @@ const Dashboard = () => {
     setCallAccepted(false);
     setCaller(null);
     setCallerSignal(null);
-  }, [socket, user, caller]);
-
+  }, [user, caller, getSocketInstance]);
   // ============================================
   // 📵 END CALL FUNCTION
   // ============================================
@@ -941,13 +960,13 @@ const Dashboard = () => {
       ringtoneRef.current.stop();
     }
     
-    socket.emit("call-ended", {
+    getSocketInstance().emit("call-ended", {
       to: caller?.from || selectedUser,
       name: user.username
     });
 
     endCallCleanup();
-  }, [socket, user, caller, selectedUser, endCallCleanup]);
+  }, [user, caller, selectedUser, endCallCleanup, getSocketInstance]);
 
   // ============================================
   // 🎤 TOGGLE MICROPHONE
@@ -1020,7 +1039,7 @@ const Dashboard = () => {
           }
         }
 
-        socket.emit("screenShareStarted", {
+        getSocketInstance().emit("screenShareStarted", {
           to: caller?.from || selectedUser
         });
 
@@ -1043,7 +1062,7 @@ const Dashboard = () => {
         alert("Could not share screen. Please try again.");
       }
     }
-  }, [isScreenSharing, socket, caller, selectedUser]);
+  }, [isScreenSharing, caller, selectedUser, getSocketInstance]);
 
   const stopScreenShare = useCallback(async () => {
     console.log("🛑 Stopping screen share...");
@@ -1066,10 +1085,10 @@ const Dashboard = () => {
     setScreenStream(null);
     setIsScreenSharing(false);
 
-    socket.emit("screenShareStopped", {
+    getSocketInstance().emit("screenShareStopped", {
       to: caller?.from || selectedUser
     });
-  }, [screenStream, stream, socket, caller, selectedUser]);
+  }, [screenStream, stream, caller, selectedUser, getSocketInstance]);
 
   // ============================================
   // 💬 CHAT FUNCTIONS
@@ -1088,7 +1107,7 @@ const Dashboard = () => {
 
     setMessages(prev => [...prev, message]);
     
-    socket.emit("send-message", {
+    getSocketInstance().emit("send-message", {
       to: selectedUser,
       message: newMessage,
       sender: user.username,
@@ -1096,8 +1115,7 @@ const Dashboard = () => {
     });
 
     setNewMessage('');
-  }, [newMessage, selectedUser, socket, user]);
-
+  }, [newMessage, selectedUser, user, getSocketInstance]);
   // ============================================
   // 🎬 YOUTUBE FUNCTIONS
   // ============================================
@@ -1120,7 +1138,7 @@ const Dashboard = () => {
       setCurrentYoutubeId(videoId);
       setIsYoutubePlaying(false);
       
-      socket.emit("youtube-load", {
+      getSocketInstance().emit("youtube-load", {
         to: selectedUser,
         videoId: videoId
       });
@@ -1129,7 +1147,7 @@ const Dashboard = () => {
     } else {
       alert('Invalid YouTube URL. Please use a valid YouTube link.');
     }
-  }, [isCaller, youtubeUrl, extractYoutubeId, socket, selectedUser]);
+  }, [isCaller, youtubeUrl, extractYoutubeId, selectedUser, getSocketInstance]);
 
   const toggleYoutubePlay = useCallback(() => {
     if (!isCaller) {
@@ -1169,7 +1187,7 @@ const Dashboard = () => {
         audioRef.current.load();
       }
       
-      socket.emit("music-load", {
+      getSocketInstance().emit("music-load", {
         to: selectedUser,
         audioUrl: audioUrl
       });
@@ -1179,8 +1197,7 @@ const Dashboard = () => {
     } else {
       alert('Please enter a valid MP3 URL');
     }
-  }, [isCaller, audioUrl, socket, selectedUser]);
-
+  }, [isCaller, audioUrl, selectedUser, getSocketInstance]);
   const toggleAudioPlay = useCallback(() => {
     if (!isCaller) {
       alert("Only the caller can control music!");
@@ -1207,14 +1224,14 @@ const Dashboard = () => {
     
     setIsAudioPlaying(newPlayingState);
 
-    socket.emit("music-play", {
+    getSocketInstance().emit("music-play", {
       to: selectedUser,
       isPlaying: newPlayingState,
       currentTime: currentTime
     });
     
     console.log(`🎵 Music ${newPlayingState ? 'playing' : 'paused'}`);
-  }, [isCaller, isAudioPlaying, socket, selectedUser]);
+  }, [isCaller, isAudioPlaying, selectedUser, getSocketInstance]);
 
   const seekAudio = useCallback((e) => {
     if (!isCaller) return;
@@ -1226,11 +1243,11 @@ const Dashboard = () => {
     audio.currentTime = seekTime;
     setCurrentTime(seekTime);
 
-    socket.emit("music-seek", {
+    getSocketInstance().emit("music-seek", {
       to: selectedUser,
       currentTime: seekTime
     });
-  }, [isCaller, duration, socket, selectedUser]);
+  }, [isCaller, duration, selectedUser, getSocketInstance]);
 
   const changeVolume = useCallback((newVolume) => {
     if (!isCaller) return;
@@ -1240,11 +1257,11 @@ const Dashboard = () => {
       audioRef.current.volume = newVolume / 100;
     }
 
-    socket.emit("music-volume", {
+    getSocketInstance().emit("music-volume", {
       to: selectedUser,
       volume: newVolume
     });
-  }, [isCaller, socket, selectedUser]);
+  }, [isCaller, selectedUser, getSocketInstance]);
 
   const toggleAudioMute = useCallback(() => {
     if (!isCaller) {
@@ -1299,31 +1316,37 @@ const Dashboard = () => {
     setShowUserDetailModal(true);
   }, [callAccepted, reciveCall]);
 
-  const filteredUsers = users.filter((u) =>
-    u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+const filteredUsers = users.filter((u) => {
+  const username = u?.username?.toLowerCase() || "";
+  const email = u?.email?.toLowerCase() || "";
+  const query = searchQuery.toLowerCase();
 
-  const handleLogout = useCallback(async () => {
-    if (callAccepted || reciveCall) {
-      alert("You must end the call before logging out.");
-      return;
-    }
-    try {
-      await apiClient.post('/auth/logout');
-      
-      socket.off("disconnect");
-      socket.disconnect();
-      socketInstance.setSocket();
-      
-      updateUser(null);
-      localStorage.removeItem("userData");
-      
-      navigate('/login');
-    } catch (error) {
-      console.error("Logout failed", error);
-    }
-  }, [callAccepted, reciveCall, socket, updateUser, navigate]);
+  return username.includes(query) || email.includes(query);
+});
+
+const handleLogout = useCallback(async () => {
+  if (callAccepted || reciveCall) {
+    alert("You must end the call before logging out.");
+    return;
+  }
+  try {
+    await apiClient.post('/auth/logout');
+    
+    const socket = getSocketInstance(); // ✅ Get socket here
+    socket.off("disconnect");
+    socket.disconnect();
+    socketInstance.setSocket();
+    
+    socketRef.current = null; // ✅ Clear ref
+    
+    updateUser(null);
+    localStorage.removeItem("userData");
+    
+    navigate('/login');
+  } catch (error) {
+    console.error("Logout failed", error);
+  }
+}, [callAccepted, reciveCall, getSocketInstance, updateUser, navigate]);
 
   // ============================================
   // 🎨 RENDER: MAIN DASHBOARD UI
